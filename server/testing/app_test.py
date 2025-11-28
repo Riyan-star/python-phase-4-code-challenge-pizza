@@ -1,14 +1,13 @@
 from models import Restaurant, RestaurantPizza, Pizza
-from app import app, db
 from faker import Faker
 
 
 class TestApp:
     '''Flask application in app.py'''
 
-    def test_restaurants(self):
+    def test_restaurants(self, client, test_app):
         """retrieves restaurants with GET request to /restaurants"""
-        with app.app_context():
+        with test_app.app_context():
             fake = Faker()
             restaurant1 = Restaurant(
                 name=fake.name(), address=fake.address())
@@ -19,7 +18,7 @@ class TestApp:
 
             restaurants = Restaurant.query.all()
 
-            response = app.test_client().get('/restaurants')
+            response = client.get('/restaurants')
             assert response.status_code == 200
             assert response.content_type == 'application/json'
             response = response.json
@@ -32,10 +31,10 @@ class TestApp:
             for restaurant in response:
                 assert 'restaurant_pizzas' not in restaurant
 
-    def test_restaurants_id(self):
+    def test_restaurants_id(self, test_app):
         '''retrieves one restaurant using its ID with GET request to /restaurants/<int:id>.'''
 
-        with app.app_context():
+        with test_app.app_context():
             fake = Faker()
             restaurant = Restaurant(name=fake.name(), address=fake.address())
             db.session.add(restaurant)
@@ -51,11 +50,11 @@ class TestApp:
             assert response['address'] == restaurant.address
             assert 'restaurant_pizzas' in response
 
-    def test_returns_404_if_no_restaurant_to_get(self):
+    def test_returns_404_if_no_restaurant_to_get(self, client, test_app):
         '''returns an error message and 404 status code with GET request to /restaurants/<int:id> by a non-existent ID.'''
 
-        with app.app_context():
-            response = app.test_client().get('/restaurants/0')
+        with test_app.app_context():
+            response = client.get('/restaurants/0')
             assert response.status_code == 404
             assert response.content_type == 'application/json'
             assert response.json.get('error')
@@ -79,17 +78,17 @@ class TestApp:
                 Restaurant.id == restaurant.id).one_or_none()
             assert result is None
 
-    def test_returns_404_if_no_restaurant_to_delete(self):
+    def test_returns_404_if_no_restaurant_to_delete(self, client, test_app):
         '''returns an error message and 404 status code with DELETE request to /restaurants/<int:id> by a non-existent ID.'''
 
-        with app.app_context():
-            response = app.test_client().get('/restaurants/0')
+        with test_app.app_context():
+            response = client.get('/restaurants/0')
             assert response.status_code == 404
             assert response.json.get('error') == "Restaurant not found"
 
-    def test_pizzas(self):
+    def test_pizzas(self, client, test_app):
         """retrieves pizzas with GET request to /pizzas"""
-        with app.app_context():
+        with test_app.app_context():
             fake = Faker()
             pizza1 = Pizza(name=fake.name(), ingredients=fake.sentence())
             pizza2 = Pizza(name=fake.name(), ingredients=fake.sentence())
@@ -97,7 +96,7 @@ class TestApp:
             db.session.add_all([pizza1, pizza2])
             db.session.commit()
 
-            response = app.test_client().get('/pizzas')
+            response = client.get('/pizzas')
             assert response.status_code == 200
             assert response.content_type == 'application/json'
             response = response.json
@@ -113,10 +112,10 @@ class TestApp:
             for pizza in response:
                 assert 'restaurant_pizzas' not in pizza
 
-    def test_creates_restaurant_pizzas(self):
+    def test_creates_restaurant_pizzas(self, test_app):
         '''creates one restaurant_pizzas using a pizza_id, restaurant_id, and price with a POST request to /restaurant_pizzas.'''
 
-        with app.app_context():
+        with test_app.app_context():
             fake = Faker()
             pizza = Pizza(name=fake.name(), ingredients=fake.sentence())
             restaurant = Restaurant(name=fake.name(), address=fake.address())
@@ -154,10 +153,10 @@ class TestApp:
                 RestaurantPizza.restaurant_id == restaurant.id, RestaurantPizza.pizza_id == pizza.id).first()
             assert query_result.price == 3
 
-    def test_400_for_validation_error(self):
+    def test_400_for_validation_error(self, client, test_app):
         '''returns a 400 status code and error message if a POST request to /restaurant_pizzas fails.'''
 
-        with app.app_context():
+        with test_app.app_context():
             fake = Faker()
             pizza = Pizza(name=fake.name(), ingredients=fake.sentence())
             restaurant = Restaurant(name=fake.name(), address=fake.address())
@@ -166,7 +165,7 @@ class TestApp:
             db.session.commit()
 
             # price not in 1..30
-            response = app.test_client().post(
+            response = client.post(
                 '/restaurant_pizzas',
                 json={
                     "price": 0,
@@ -178,7 +177,7 @@ class TestApp:
             assert response.status_code == 400
             assert response.json['errors'] == ["validation errors"]
 
-            response = app.test_client().post(
+            response = client.post(
                 '/restaurant_pizzas',
                 json={
                     "price": 31,
